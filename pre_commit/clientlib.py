@@ -282,6 +282,49 @@ class OptionalSensibleRegexAtHook(cfgv.OptionalNoDefault):
                 )
 
 
+class PotentiallyDangerousTrailingCharactersAtHook(cfgv.OptionalNoDefault):
+    def _pre_process(self, value: str) -> str:
+        spaces_regex_pattern = r'\s+'
+        trailing_single_slash = r'/$'
+        combined_pattern = (
+            f'{spaces_regex_pattern}|'
+            f'{trailing_single_slash}'
+        )
+        return re.sub(
+            combined_pattern, '',
+            value.replace('\t', '')
+            .replace('\n', '').strip(),
+        )
+
+    def check(self, dct: dict[str, Any]) -> None:
+        super().check(dct)
+        pipe_trailing_pattern = r'\|(\)|\/)?$'
+        slash_trailing_pattern = r'\/\)$|\/\)/$'
+
+        pre_processed_field = self._pre_process(dct.get(self.key, ''))
+
+        if re.search(pipe_trailing_pattern, pre_processed_field):
+            logger.error(
+                'Potentially dangerous trailing pipe pattern detected '
+                f"in {self.key!r} field of the hook: {dct.get('id')!r}. "
+                'This can have uninteded behaviour '
+                'such as the files option being rendered empty. '
+                'It is recommended to remove the trailing character prompted.',
+            )
+
+        if (
+            re.search(slash_trailing_pattern, pre_processed_field) and
+            self.key == 'files'
+        ):
+            logger.error(
+                'Potentially dangerous trailing slash pattern detected '
+                f"in {self.key!r} field of the hook: {dct.get('id')!r}. "
+                'This can have uninteded behaviour '
+                'such as the files option being rendered empty. '
+                'It is recommended to remove the trailing character prompted.',
+            )
+
+
 class OptionalSensibleRegexAtTop(cfgv.OptionalNoDefault):
     def check(self, dct: dict[str, Any]) -> None:
         super().check(dct)
@@ -360,6 +403,8 @@ class NotAllowed(cfgv.OptionalNoDefault):
 _COMMON_HOOK_WARNINGS = (
     OptionalSensibleRegexAtHook('files', cfgv.check_string),
     OptionalSensibleRegexAtHook('exclude', cfgv.check_string),
+    PotentiallyDangerousTrailingCharactersAtHook('files', cfgv.check_string),
+    PotentiallyDangerousTrailingCharactersAtHook('exclude', cfgv.check_string),
     DeprecatedStagesWarning('stages'),
 )
 

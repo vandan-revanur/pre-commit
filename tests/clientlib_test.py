@@ -240,6 +240,82 @@ def test_validate_optional_sensible_regex_at_hook(caplog, regex, warning):
     assert caplog.record_tuples == [('pre_commit', logging.WARNING, warning)]
 
 
+@pytest.mark.parametrize(
+    ('regex', 'warning'),
+    (
+        (
+            '(?x)^(\n^some-dir/some-sub-dir|\n)/',
+            'Potentially dangerous trailing pipe pattern '
+            "detected in 'files' field of the hook: 'flake8'. "
+            'This can have uninteded behaviour '
+            'such as the files option being rendered empty. '
+            'It is recommended to remove the trailing character prompted.',
+        ),
+        (
+            '^some/path1|',
+            'Potentially dangerous trailing pipe pattern '
+            "detected in 'files' field of the hook: 'flake8'. "
+            'This can have uninteded behaviour '
+            'such as the files option being rendered empty. '
+            'It is recommended to remove the trailing character prompted.',
+        ),
+        (
+            '(?x)^(\n' '^some/path1|\n' '^some/path2|\n' ')',
+            'Potentially dangerous trailing pipe pattern '
+            "detected in 'files' field of the hook: 'flake8'. "
+            'This can have uninteded behaviour '
+            'such as the files option being rendered empty. '
+            'It is recommended to remove the trailing character prompted.',
+        ),
+        (
+            '(?x)^(^some-dir/)/',
+            'Potentially dangerous trailing slash pattern '
+            "detected in 'files' field of the hook: 'flake8'. "
+            'This can have uninteded behaviour '
+            'such as the files option being rendered empty. '
+            'It is recommended to remove the trailing character prompted.',
+        ),
+        (
+            '(?x)^(\n^some-dir/\n)/',
+            'Potentially dangerous trailing slash pattern '
+            "detected in 'files' field of the hook: 'flake8'. "
+            'This can have uninteded behaviour '
+            'such as the files option being rendered empty. '
+            'It is recommended to remove the trailing character prompted.',
+        ),
+        (
+            '(?x)^(\n^some-dir/\n\t\t\t\t)/',
+            'Potentially dangerous trailing slash pattern '
+            "detected in 'files' field of the hook: 'flake8'. "
+            'This can have uninteded behaviour '
+            'such as the files option being rendered empty. '
+            'It is recommended to remove the trailing character prompted.',
+        ),
+        (
+            '(?x)^(\n^some-dir/\n           )/',
+            'Potentially dangerous trailing slash pattern '
+            "detected in 'files' field of the hook: 'flake8'. "
+            'This can have uninteded behaviour '
+            'such as the files option being rendered empty. '
+            'It is recommended to remove the trailing character prompted.',
+        ),
+    ),
+)
+def test_trailing_characters_at_hook(caplog, regex, warning):
+    config_obj = {
+        'id': 'flake8',
+        'files': regex,
+    }
+    cfgv.validate(config_obj, CONFIG_HOOK_DICT)
+
+    print(regex)
+    print('actual:')
+    print(caplog.record_tuples)
+    print('expected:')
+    print([('pre_commit', logging.ERROR, warning)])
+    assert caplog.record_tuples == [('pre_commit', logging.ERROR, warning)]
+
+
 def test_validate_optional_sensible_regex_at_local_hook(caplog):
     config_obj = sample_local_config()
     config_obj['hooks'][0]['files'] = 'dir/*.py'
